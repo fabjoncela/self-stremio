@@ -8,7 +8,7 @@ const { default: Icon } = require('@stremio/stremio-icons/react');
 const { Button } = require('stremio/components');
 const styles = require('./styles');
 
-const Error = React.forwardRef(({ className, code, message, stream }, ref) => {
+const Error = React.forwardRef(({ className, code, message, stream, onCompatibilityRetry }, ref) => {
     const { t } = useTranslation();
 
     const [playlist, fileName] = React.useMemo(() => {
@@ -24,6 +24,20 @@ const Error = React.forwardRef(({ className, code, message, stream }, ref) => {
             {
                 code === 2 ?
                     <div className={styles['error-sub']} title={t('EXTERNAL_PLAYER_HINT')}>{t('EXTERNAL_PLAYER_HINT')}</div>
+                    :
+                    null
+            }
+            {
+                onCompatibilityRetry ?
+                    <Button
+                        className={styles['compatibility-button']}
+                        title={t('PLAYER_TRY_COMPATIBLE_PLAYBACK', { defaultValue: 'Try compatible playback' })}
+                        onClick={onCompatibilityRetry}
+                    >
+                        <div className={styles['label']}>
+                            {t('PLAYER_TRY_COMPATIBLE_PLAYBACK', { defaultValue: 'Try compatible playback' })}
+                        </div>
+                    </Button>
                     :
                     null
             }
@@ -51,6 +65,7 @@ Error.propTypes = {
     code: PropTypes.number,
     message: PropTypes.string,
     stream: PropTypes.object,
+    onCompatibilityRetry: PropTypes.func,
 };
 
 module.exports = Error;

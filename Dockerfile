@@ -1,5 +1,6 @@
 # the node version for running Stremio Web
 ARG NODE_VERSION=22-alpine
+ARG STREMIO_WEB_BUILD_ID=b6cf70264bdca43f2bb983f26050bc7aed3a8481-private-caddy-v7-iphone-badge
 FROM node:$NODE_VERSION AS base
 
 # Setup pnpm
@@ -18,7 +19,10 @@ WORKDIR /var/www/stremio-web
 # Setup app
 FROM base AS app
 
+ARG STREMIO_WEB_BUILD_ID
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /var/www/stremio-web
+COPY patches /var/www/stremio-web/patches
 RUN pnpm i --frozen-lockfile
 
 COPY . /var/www/stremio-web

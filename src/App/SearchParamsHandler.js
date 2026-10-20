@@ -1,129 +1,34 @@
 // Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
-const { createPath, useLocation } = require('react-router');
 const { useCore } = require('stremio/core');
-const { CONSTANTS, withCoreSuspender, useModelState, useProfile, useToast } = require('stremio/common');
-const { default: StreamingServerUrlModal } = require('./StreamingServerUrlModal');
+const { withCoreSuspender, useProfile } = require('stremio/common');
 
-const DEFAULT_STREAMING_SERVER_URLS = new Set([
-    new URL(CONSTANTS.DEFAULT_STREAMING_SERVER_URL).href,
-    new URL('http://localhost:11470').href,
-]);
-const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
-
-const parse = (value) => {
-    try {
-        const url = new URL(value);
-        return url.protocol === 'http:' || url.protocol === 'https:' ? url : null;
-    } catch (_) {
-        return null;
-    }
-};
-
-const normalize = (value) => parse(value)?.href ?? null;
-const loopback = (url) => url.protocol === 'http:' && LOOPBACK_HOSTNAMES.has(url.hostname);
-const map = ({ streamingServerUrls }) => ({ streamingServerUrls });
+// This private deployment deliberately ignores account, local-storage, and URL
+// parameter preferences. It must always use the Tailnet-only streaming server.
+const FORCED_STREAMING_SERVER_URL = 'https://fabjon-hp.tail681ec9.ts.net:3010/stremio-server/';
 
 const SearchParamsHandler = () => {
-    const location = useLocation();
     const core = useCore();
     const profile = useProfile();
-    const toast = useToast();
-    const { streamingServerUrls } = useModelState({ model: 'ctx', map: map });
 
-    const { searchParams } = new URL(`${window.location.origin}${createPath(location)}${window.location.search}`);
-    const streamingServerUrl = searchParams.getAll('streamingServerUrl').pop() ?? null;
-    const [requested, set] = React.useState(null);
-    const handledStreamingServerUrlRef = React.useRef(null);
-
-    const apply = React.useCallback((url, { save, notify }) => {
-        if (save) {
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'AddServerUrl',
-                    args: url,
-                },
-            });
+    React.useEffect(() => {
+        if (profile.settings.streamingServerUrl === FORCED_STREAMING_SERVER_URL) {
+            return;
         }
-
         core.transport.dispatch({
             action: 'Ctx',
             args: {
                 action: 'UpdateSettings',
                 args: {
                     ...profile.settings,
-                    streamingServerUrl: url,
+                    streamingServerUrl: FORCED_STREAMING_SERVER_URL,
                 },
             },
         });
+    }, [core, profile.settings]);
 
-        if (notify) {
-            toast.show({
-                type: 'success',
-                title: `Using streaming server at ${url}`,
-                timeout: 4000,
-            });
-        }
-    }, [core, profile.settings, toast]);
-
-    const onConfirm = React.useCallback(() => {
-        apply(requested, { save: true, notify: false });
-        set(null);
-    }, [apply, requested]);
-
-    const onCancel = React.useCallback(() => {
-        set(null);
-    }, []);
-
-    React.useEffect(() => {
-        if (handledStreamingServerUrlRef.current === streamingServerUrl) {
-            return;
-        }
-        handledStreamingServerUrlRef.current = streamingServerUrl ?? null;
-        set(null);
-
-        const parsed = parse(streamingServerUrl);
-        if (parsed === null) {
-            return;
-        }
-
-        const normalized = parsed.href;
-        const selected = normalize(profile.settings.streamingServerUrl);
-        if (normalized === selected) {
-            return;
-        }
-
-        if (DEFAULT_STREAMING_SERVER_URLS.has(normalized)) {
-            apply(normalized, { save: true, notify: false });
-            return;
-        }
-
-        const saved = streamingServerUrls.some(({ url }) => (
-            normalize(url) === normalized
-        ));
-        if (saved) {
-            apply(normalized, { save: false, notify: true });
-            return;
-        }
-
-        if (loopback(parsed)) {
-            apply(normalized, { save: true, notify: true });
-            return;
-        }
-
-        set(normalized);
-    }, [apply, profile.settings.streamingServerUrl, streamingServerUrl, streamingServerUrls]);
-
-    return requested !== null ?
-        <StreamingServerUrlModal
-            url={requested}
-            onConfirm={onConfirm}
-            onCancel={onCancel}
-        />
-        :
-        null;
+    return null;
 };
 
 module.exports = withCoreSuspender(SearchParamsHandler);

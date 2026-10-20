@@ -12,7 +12,10 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const packageJson = require('./package.json');
 
-const COMMIT_HASH = execSync('git rev-parse HEAD').toString().trim();
+const SOURCE_COMMIT = execSync('git rev-parse HEAD').toString().trim();
+// A local patch must receive a distinct asset namespace so an installed PWA
+// cannot reuse a previous build from the upstream source revision.
+const COMMIT_HASH = process.env.STREMIO_WEB_BUILD_ID || SOURCE_COMMIT;
 
 const THREAD_LOADER = {
     loader: 'thread-loader',

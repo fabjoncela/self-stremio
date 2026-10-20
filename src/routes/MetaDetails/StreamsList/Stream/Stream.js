@@ -13,12 +13,29 @@ const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const StreamPlaceholder = require('./StreamPlaceholder');
 const styles = require('./styles');
 
+const TORZNAB_ADDON_NAME = 'Torznab Indexer';
+const IPHONE_VIDEO_CODEC = /\b(?:h[ .-]?264|x264|avc)\b/i;
+const IPHONE_AUDIO_CODEC = /\b(?:aac|mp4a)\b/i;
+const IPHONE_INCOMPATIBLE_CODEC = /\b(?:h[ .-]?265|hevc|x265|av1|vp9|dts(?:-hd)?|truehd|e-?ac-?3|ddp|ac-?3)\b/i;
+
+const isIphonePreferredStream = (addonName, name, description) => {
+    const releaseLabel = `${name || ''} ${description || ''}`;
+
+    return addonName === TORZNAB_ADDON_NAME &&
+        IPHONE_VIDEO_CODEC.test(releaseLabel) &&
+        IPHONE_AUDIO_CODEC.test(releaseLabel) &&
+        !IPHONE_INCOMPATIBLE_CODEC.test(releaseLabel);
+};
+
 const Stream = ({ className = '', compact = false, isEpg = false, videoId = undefined, videoReleased = undefined, addonName, name, description, thumbnail = undefined, progress, deepLinks, externalPlayerCallbackCanMarkWatched, ...props }) => {
     const profile = useProfile();
     const toast = useToast();
     const platform = usePlatform();
     const core = useCore();
     const routeFocused = useRouteFocused();
+    const iphonePreferred = React.useMemo(() => {
+        return isIphonePreferredStream(addonName, name, description);
+    }, [addonName, name, description]);
 
     const [menuOpen, openMenu, closeMenu, toggleMenu] = useBinaryState(false);
 
@@ -228,6 +245,12 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
                             </div>
                             :
                             <div className={styles['addon-name-container']} title={name || addonName}>
+                                {
+                                    iphonePreferred ?
+                                        <span className={styles['iphone-preferred-badge']} title={'Likely iPhone direct-play compatible: H.264 video and AAC audio'}>iPhone</span>
+                                        :
+                                        null
+                                }
                                 <div className={styles['addon-name']}>{name || addonName}</div>
                             </div>
                     }
@@ -246,7 +269,7 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
                 {children}
             </Button>
         );
-    }, [compact, thumbnail, progress, addonName, name, description, href, target, download, onClick, menuOpen]);
+    }, [compact, thumbnail, progress, addonName, name, description, href, target, download, onClick, menuOpen, iphonePreferred]);
 
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (

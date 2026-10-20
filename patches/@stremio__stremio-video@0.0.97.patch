@@ -1,0 +1,160 @@
+--- a/src/withStreamingServer/buildProxyUrl.js
++++ b/src/withStreamingServer/buildProxyUrl.js
+@@ -1,5 +1,9 @@
+ var url = require('url');
+ 
++function resolveServerPath(streamingServerURL, path) {
++    return url.resolve(streamingServerURL.replace(/\/?$/, '/'), path.replace(/^\//, ''));
++}
++
+ function buildProxyUrl(streamingServerURL, streamURL, requestHeaders, responseHeaders) {
+     var parsedStreamURL = new URL(streamURL);
+     var proxyOptions = new URLSearchParams();
+@@ -10,7 +14,7 @@
+     Object.entries(responseHeaders).forEach(function(entry) {
+         proxyOptions.append('r', entry[0] + ':' + entry[1]);
+     });
+-    return url.resolve(streamingServerURL, '/proxy/' + proxyOptions.toString() + parsedStreamURL.pathname) + parsedStreamURL.search;
++    return resolveServerPath(streamingServerURL, '/proxy/' + proxyOptions.toString() + parsedStreamURL.pathname) + parsedStreamURL.search;
+ }
+ 
+ module.exports = buildProxyUrl;
+--- a/src/withStreamingServer/createTorrent.js
++++ b/src/withStreamingServer/createTorrent.js
+@@ -1,5 +1,9 @@
+ var url = require('url');
+ 
++function resolveServerPath(streamingServerURL, path) {
++    return url.resolve(streamingServerURL.replace(/\/?$/, '/'), path.replace(/^\//, ''));
++}
++
+ function buildTorrent(streamingServerURL, infoHash, fileIdx, sources) {
+     var query = Array.isArray(sources) && sources.length > 0 ?
+         '?' + new URLSearchParams(sources.map(function(source) {
+@@ -8,7 +12,7 @@
+         :
+         '';
+     return {
+-        url: url.resolve(streamingServerURL, '/' + encodeURIComponent(infoHash) + '/' + encodeURIComponent(fileIdx)) + query,
++        url: resolveServerPath(streamingServerURL, '/' + encodeURIComponent(infoHash) + '/' + encodeURIComponent(fileIdx)) + query,
+         infoHash: infoHash,
+         fileIdx: fileIdx,
+         sources: sources
+@@ -52,7 +56,7 @@
+         body.guessFileIdx = false;
+     }
+ 
+-    return fetch(url.resolve(streamingServerURL, '/' + encodeURIComponent(infoHash) + '/create'), {
++    return fetch(resolveServerPath(streamingServerURL, '/' + encodeURIComponent(infoHash) + '/create'), {
+         method: 'POST',
+         headers: {
+             'content-type': 'application/json'
+--- a/src/withStreamingServer/fetchVideoParams.js
++++ b/src/withStreamingServer/fetchVideoParams.js
+@@ -1,5 +1,9 @@
+ var url = require('url');
+ 
++function resolveServerPath(streamingServerURL, path) {
++    return url.resolve(streamingServerURL.replace(/\/?$/, '/'), path.replace(/^\//, ''));
++}
++
+ function fetchOpensubtitlesParams(streamingServerURL, mediaURL, behaviorHints) {
+     var hash = behaviorHints && typeof behaviorHints.videoHash === 'string' ? behaviorHints.videoHash : null;
+     var size = behaviorHints && isFinite(behaviorHints.videoSize) ? behaviorHints.videoSize : null;
+@@ -8,7 +12,7 @@
+     }
+ 
+     var queryParams = new URLSearchParams([['videoUrl', mediaURL]]);
+-    return fetch(url.resolve(streamingServerURL, '/opensubHash?' + queryParams.toString()))
++    return fetch(resolveServerPath(streamingServerURL, '/opensubHash?' + queryParams.toString()))
+         .then(function(resp) {
+             if (resp.ok) {
+                 return resp.json();
+@@ -52,7 +56,7 @@
+     if (probe && probe.format && typeof probe.format.name === 'string') {
+         queryParams.set('container', probe.format.name);
+     }
+-    return fetch(url.resolve(streamingServerURL, '/subtitleSignature?' + queryParams.toString()))
++    return fetch(resolveServerPath(streamingServerURL, '/subtitleSignature?' + queryParams.toString()))
+         .then(function(resp) {
+             if (resp.ok) {
+                 return resp.json();
+@@ -87,7 +91,7 @@
+         var hasSpecificFileIdx = fileIdxNum !== null && fileIdxNum !== -1 && isFinite(fileIdxNum);
+ 
+         if (hasSpecificFileIdx) {
+-            return fetch(url.resolve(streamingServerURL, '/' + encodeURIComponent(infoHash) + '/' + encodeURIComponent(fileIdx) + '/stats.json'))
++            return fetch(resolveServerPath(streamingServerURL, '/' + encodeURIComponent(infoHash) + '/' + encodeURIComponent(fileIdx) + '/stats.json'))
+                 .then(function(resp) {
+                     if (resp.ok) {
+                         return resp.json();
+@@ -104,7 +108,7 @@
+                 });
+         }
+ 
+-        return fetch(url.resolve(streamingServerURL, '/' + encodeURIComponent(infoHash) + '/stats.json'))
++        return fetch(resolveServerPath(streamingServerURL, '/' + encodeURIComponent(infoHash) + '/stats.json'))
+             .then(function(resp) {
+                 if (resp.ok) {
+                     return resp.json();
+--- a/src/withStreamingServer/withStreamingServer.js
++++ b/src/withStreamingServer/withStreamingServer.js
+@@ -31 +31,5 @@
++function resolveServerPath(streamingServerURL, path) {
++    return url.resolve(streamingServerURL.replace(/\/?$/, '/'), path.replace(/^\//, ''));
++}
++
+ function withStreamingServer(Video) {
+@@ -35,14 +39,14 @@
+             url: typeof track.url === 'string' ?
+                 (subtitleTypes.isASSSubtitleTrack(track) ?
+                     buildProxyUrl(streamingServerURL, track.url, {}, {}) :
+-                    url.resolve(streamingServerURL, '/subtitles.vtt?' + new URLSearchParams([['from', track.url]]).toString())) :
++                    resolveServerPath(streamingServerURL, '/subtitles.vtt?' + new URLSearchParams([['from', track.url]]).toString())) :
+                 track.url
+         });
+     }
+     function fetchStreamProbe(stream, options) {
+         var queryParams = new URLSearchParams([['mediaURL', stream.url]]);
+ 
+-        return fetch(url.resolve(options.streamingServerURL, '/hlsv2/probe?' + queryParams.toString()))
++        return fetch(resolveServerPath(options.streamingServerURL, '/hlsv2/probe?' + queryParams.toString()))
+             .then(function(resp) {
+                 if (!resp.ok) {
+                     throw new Error(resp.status + ' (' + resp.statusText + ')');
+@@ -118,7 +122,7 @@
+         var fonts = probe.streams
+             .filter(isFontAttachment)
+             .map(function(stream) {
+-                return url.resolve(streamingServerURL, '/hlsv2/' + id + '/source/attachment/' + stream.id + '?' + query);
++                return resolveServerPath(streamingServerURL, '/hlsv2/' + id + '/source/attachment/' + stream.id + '?' + query);
+             });
+ 
+         return probe.streams
+@@ -129,7 +133,7 @@
+                 return {
+                     id: stream.id,
+                     codec: stream.codec,
+-                    url: url.resolve(streamingServerURL, '/hlsv2/' + id + '/source/subtitle/' + stream.id + '.ass?' + query),
++                    url: resolveServerPath(streamingServerURL, '/hlsv2/' + id + '/source/subtitle/' + stream.id + '.ass?' + query),
+                     fonts: fonts
+                 };
+             });
+@@ -304,7 +308,7 @@
+                                                 fileIdx: fileIdx,
+                                                 probe: probe,
+                                                 stream: {
+-                                                    url: url.resolve(commandArgs.streamingServerURL, '/hlsv2/' + id + '/master.m3u8?' + queryParams.toString()),
++                                                    url: resolveServerPath(commandArgs.streamingServerURL, '/hlsv2/' + id + '/master.m3u8?' + queryParams.toString()),
+                                                     subtitles: Array.isArray(commandArgs.stream.subtitles) ?
+                                                         commandArgs.stream.subtitles.map(function(track) {
+                                                             return prepareSubtitleTrack(track, commandArgs.streamingServerURL);
+@@ -339,7 +343,7 @@
+ 
+                                 if (commandArgs.assSubtitlesStyling === true && ['Tizen', 'webOS'].includes(commandArgs.platform) && result.stream.url === result.mediaURL) {
+                                     var sourceQuery = new URLSearchParams([['mediaURL', result.mediaURL]]).toString();
+-                                    var sourceBase = url.resolve(commandArgs.streamingServerURL, '/embedded-ass');
++                                    var sourceBase = resolveServerPath(commandArgs.streamingServerURL, '/embedded-ass');
+                                     embeddedASSDiscovery = typeof AbortController === 'function' ? new AbortController() : null;
+                                     fetch(sourceBase + '?' + sourceQuery, embeddedASSDiscovery ? { signal: embeddedASSDiscovery.signal } : {})
+                                         .then(function(response) {

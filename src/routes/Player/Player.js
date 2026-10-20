@@ -55,7 +55,7 @@ const Player = () => {
         id,
         videoId
     }), [stream, streamTransportUrl, metaTransportUrl, type, id, videoId]);
-    const [queryParams] = useSearchParams();
+    const [queryParams, setQueryParams] = useSearchParams();
     const navigate = useNavigate();
     const goBack = useGoBack();
     const { t } = useTranslation();
@@ -76,6 +76,7 @@ const Player = () => {
     const toast = useToast();
     const discord = useDiscord();
     const discordTimestamps = React.useRef(EMPTY_DISCORD_TIMESTAMPS);
+    const downloadedCopyCleanupScheduled = React.useRef(null);
 
     const [seeking, setSeeking] = React.useState(false);
 
@@ -275,6 +276,24 @@ const Player = () => {
             });
         }
     }, []);
+
+    // Safari cannot directly play a number of common torrent encodes (notably
+    // HEVC video and E-AC-3 audio). Keep direct playback as the default, but
+    // offer one explicit HLS retry when the browser reports that exact class of
+    // failure. The player already maps forceTranscoding to the engine's HLS
+    // path; changing only this route preserves every other source's behaviour.
+    const compatibilityRetryAvailable = platform.name === 'ios' &&
+        !forceTranscoding &&
+        error !== null &&
+        typeof error.message === 'string' &&
+        /\b(not supported|unsupported)\b/i.test(error.message);
+
+    const onCompatibilityRetry = React.useCallback(() => {
+        const nextQueryParams = new URLSearchParams(queryParams);
+        nextQueryParams.set('forceTranscoding', '1');
+        setError(null);
+        setQueryParams(nextQueryParams, { replace: true });
+    }, [queryParams, setQueryParams]);
 
     const onPlayRequested = React.useCallback(() => {
         playingOnExternalDevice.current = false;
@@ -573,6 +592,30 @@ const Player = () => {
     React.useEffect(() => {
         !seeking && timeChanged(video.state.time, video.state.duration, video.state.manifest?.name);
     }, [video.state.time, video.state.duration, video.state.manifest, seeking]);
+
+    // A completed qBittorrent copy is eligible for its 24-hour cleanup window
+    // only after this private Web player reaches 90% of real playback. The
+    // queue service maps the opaque bridge token back to a queue-owned file;
+    // normal Stremio streams, native clients, and raw paths are ignored.
+    React.useEffect(() => {
+        const streamUrl = player.stream?.type === 'Ready' ? player.stream.content?.url : null;
+        const duration = video.state.duration;
+        const time = video.state.time;
+        if (typeof streamUrl !== 'string' || !streamUrl.includes('/downloaded-copy/media/') ||
+            typeof duration !== 'number' || duration <= 0 || typeof time !== 'number' || time / duration < 0.9 ||
+            downloadedCopyCleanupScheduled.current === streamUrl) {
+            return;
+        }
+        fetch('/downloads/api/playback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: streamUrl, progress: time / duration }),
+        }).then((response) => {
+            if (response.ok) downloadedCopyCleanupScheduled.current = streamUrl;
+        }).catch(() => {
+            // Cleanup bookkeeping must never interrupt user playback.
+        });
+    }, [player.stream, video.state.duration, video.state.time]);
 
     React.useEffect(() => {
         if (playingOnExternalDevice.current && video.state.paused === false) {
@@ -996,6 +1039,7 @@ const Player = () => {
                         ref={errorRef}
                         className={classnames(styles['layer'], styles['error-layer'])}
                         stream={video.state.stream}
+                        onCompatibilityRetry={compatibilityRetryAvailable ? onCompatibilityRetry : null}
                         {...error}
                     />
                     :

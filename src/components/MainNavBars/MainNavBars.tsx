@@ -10,6 +10,16 @@ const TABS = [
     { id: 'board', label: 'Board', icon: 'home', href: '/' },
     { id: 'discover', label: 'Discover', icon: 'discover', href: '/discover' },
     { id: 'library', label: 'Library', icon: 'library', href: '/library' },
+    {
+        id: 'downloads',
+        label: 'Downloads',
+        icon: 'ic_downloads',
+        href: '/',
+        onClick: (event: React.MouseEvent) => {
+            event.preventDefault();
+            window.location.assign('/downloads/');
+        },
+    },
     { id: 'calendar', label: 'Calendar', icon: 'calendar', href: '/calendar' },
     { id: 'addons', label: 'ADDONS', icon: 'addons', href: '/addons' },
     { id: 'settings', label: 'SETTINGS', icon: 'settings', href: '/settings' },
@@ -53,4 +63,3 @@ const MainNavBars = memo(({ className, route, query, children }: Props) => {
 });
 
 export default MainNavBars;
-

@@ -59,12 +59,32 @@
             opacity: 0.25;
         }
 
-        .addon-name {
-            width: 7rem;
-            font-size: 1.1rem;
-            text-align: left;
-            white-space: pre-wrap;
-            color: var(--primary-foreground-color);
+        .addon-name-container {
+            width: 8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+
+            .iphone-preferred-badge {
+                flex: none;
+                padding: 0.16rem 0.34rem;
+                border-radius: 0.3rem;
+                font-size: 0.65rem;
+                font-weight: 700;
+                line-height: 1.1;
+                letter-spacing: 0.02em;
+                color: #073b2a;
+                background-color: #7ce0b8;
+            }
+
+            .addon-name {
+                flex: 1;
+                min-width: 0;
+                font-size: 1.1rem;
+                text-align: left;
+                white-space: pre-wrap;
+                color: var(--primary-foreground-color);
+            }
         }
 
         .progress-bar-container {

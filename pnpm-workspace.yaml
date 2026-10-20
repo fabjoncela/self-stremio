@@ -4,4 +4,5 @@ minimumReleaseAgeExclude:
 blockExoticSubdeps: false
 
 patchedDependencies:
+  '@stremio/stremio-video@0.0.97': patches/@stremio__stremio-video@0.0.97.patch
   a-color-picker@1.2.1: patches/a-color-picker@1.2.1.patch
